@@ -1,0 +1,15 @@
+---
+project_name: "project_name_preprod"
+
+auth_basic_enabled: true
+
+db_name: "{{ project_name }}"
+db_user: "{{ default_user }}"
+db_password: "{{ default_password }}"
+
+gunicorn_workers: 1
+
+hg_branch: default
+
+server_hostname: server_hostname-preprod.test
+server_ssl_enabled: false

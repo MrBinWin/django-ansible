@@ -1,0 +1,10 @@
+---
+- name: force handlers to run
+  meta: flush_handlers
+
+- name: clear templates cache
+  django_manage:
+    command: clear_templates_cache
+    virtualenv: "{{ virtualenv_path }}"
+    app_path: "/www/{{ project_name }}"
+  when: project_name == production_project_name

@@ -1,0 +1,11 @@
+---
+- name: create gunicorn custom service
+  become: true
+  template:
+    src: gunicorn.service
+    dest: "/etc/systemd/system/gunicorn_{{ project_name }}.service"
+  register: gunicorn_service_created
+
+- name: restart gunicorn service
+  command: /bin/true
+  notify: restart gunicorn

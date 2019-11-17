@@ -1,0 +1,107 @@
+ALLOWED_HOSTS = ['{{ server_hostname }}', '.{{ server_hostname }}']
+
+{% if django_settings_debug %}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    },
+    'database': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    },
+    'templates': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    },
+    'template_fragments': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    }
+}
+
+{% else %}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    },
+    'database': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    },
+    'templates': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': '/var/tmp/{{ project_name }}_cache/templates',
+        'OPTIONS': {
+            'MAX_ENTRIES': 50000000
+        }
+    },
+    'template_fragments': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': '/var/tmp/{{ project_name }}_cache/template_fragments',
+        'OPTIONS': {
+            'MAX_ENTRIES': 50000000
+        }
+    }
+}
+
+{% endif %}
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': '{{ db_name }}',
+        'USER': '{{ db_user }}',
+        'PASSWORD': '{{ db_password }}',
+        'HOST': 'localhost',
+    }
+}
+
+DEBUG = {{ django_settings_debug }}
+
+{% if not server_ssl_enabled %}
+
+DEFAULT_URL_SCHEME = 'http'
+
+{% endif %}
+
+EMAIL_HOST_PASSWORD = "some_password"
+
+HG_REVISION_HASH = '{{ nginx_local_revision.stdout }}'
+
+INTERNAL_IPS = []
+
+MEDIA_ROOT = '{{ media_files_path }}'
+
+{% if django_settings_debug %}
+
+def show_toolbar(request):
+    return True
+
+DEBUG_TOOLBAR_CONFIG = {
+    "SHOW_TOOLBAR_CALLBACK" : show_toolbar,
+}
+
+DEBUG_TOOLBAR_PANELS = [
+    'debug_toolbar.panels.versions.VersionsPanel',
+    'debug_toolbar.panels.timer.TimerPanel',
+    # 'djdt_flamegraph.FlamegraphPanel',
+    'debug_toolbar.panels.settings.SettingsPanel',
+    'debug_toolbar.panels.headers.HeadersPanel',
+    'debug_toolbar.panels.request.RequestPanel',
+    'debug_toolbar.panels.sql.SQLPanel',
+    'debug_toolbar.panels.staticfiles.StaticFilesPanel',
+    'debug_toolbar.panels.templates.TemplatesPanel',
+    'debug_toolbar.panels.cache.CachePanel',
+    'debug_toolbar.panels.profiling.ProfilingDebugPanel',
+    'debug_toolbar.panels.signals.SignalsPanel',
+    'debug_toolbar.panels.logging.LoggingPanel',
+    'debug_toolbar.panels.redirects.RedirectsPanel',
+]
+
+INSTALLED_APPS += [
+    'debug_toolbar',
+]
+
+MIDDLEWARE += [
+    'debug_toolbar.middleware.DebugToolbarMiddleware'
+]
+
+{% endif %}

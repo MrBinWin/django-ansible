@@ -1,0 +1,69 @@
+---
+- name: create web_stub web directory
+  become: true
+  file:
+    path: "/www/web_stub"
+    state: directory
+    owner: "{{ default_user }}"
+    group: "{{ default_user }}"
+    mode: 0774
+
+- name: Copy web_stub into web directory
+  template:
+    src: web_stub/index.html
+    dest: "/www/web_stub"
+
+- name: Copy nginx web_stub configuration with ssl enabled
+  become: true
+  template:
+    src: web_stub/with_ssl.conf
+    dest: "/etc/nginx/sites-available/{{ project_name }}"
+  when: server_ssl_enabled
+
+- name: Copy ssl crt
+  become: true
+  copy:
+    src: "files/ssl/crt"
+    dest: "/etc/ssl/{{ project_name }}.crt"
+    owner: root
+    group: root
+    mode: 0600
+  when: server_ssl_enabled
+
+- name: Copy ssl key
+  become: true
+  copy:
+    src: "files/ssl/key"
+    dest: "/etc/ssl/{{ project_name }}.key"
+    owner: root
+    group: root
+    mode: 0600
+  when: server_ssl_enabled
+
+- name: Copy nginx web_stub configuration without ssl
+  become: true
+  template:
+    src: web_stub/without_ssl.conf
+    dest: "/etc/nginx/sites-available/{{ project_name }}"
+  when: server_ssl_enabled == false
+
+- name: Add host as a localhost to /etc/hosts
+  become: true
+  lineinfile:
+    dest: /etc/hosts
+    line: "127.0.0.1 {{ item }}"
+    state: present
+  with_items:
+    - "{{ server_hostname }}"
+    - "www.{{ server_hostname }}"
+
+- name: Create symlink in nginx/sites_enabled
+  become: true
+  file:
+    src: "/etc/nginx/sites-available/{{ project_name }}"
+    dest: "/etc/nginx/sites-enabled/{{ project_name }}"
+    state: link
+
+- name: restart nginx service
+  become: true
+  shell: "service nginx restart"

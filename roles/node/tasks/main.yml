@@ -1,0 +1,23 @@
+---
+- name: install "n" - Node.js version manager
+  shell: "curl -L https://git.io/n-install | bash -s -- -y latest"
+  ignore_errors: yes
+  changed_when: false
+  failed_when: false
+
+- name: Install "gulp-cli" node.js package globally
+  npm:
+    name: gulp-cli
+    global: yes
+    state: present
+
+- name: Install "node-gyp" node.js package globally
+  npm:
+    name: node-gyp
+    global: yes
+    state: present
+
+- name: Install packages based on package.json
+  shell: "npm install"
+  args:
+    chdir: "/www/{{ project_name }}/frontend"

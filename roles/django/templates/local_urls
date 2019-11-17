@@ -1,0 +1,17 @@
+{% if django_settings_debug %}
+
+import debug_toolbar
+from django.conf import settings
+from django.conf.urls import include, url
+from django.conf.urls.static import static
+
+from project_name.settings import MEDIA_URL, MEDIA_ROOT
+
+urlpatterns += static(MEDIA_URL, document_root=MEDIA_ROOT)
+urlpatterns = [
+    path('__debug__/', include(debug_toolbar.urls)),
+] + urlpatterns
+
+{% endif %}
+
+

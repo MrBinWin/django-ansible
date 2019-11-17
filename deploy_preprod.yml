@@ -1,0 +1,21 @@
+---
+- hosts: preprod
+  remote_user: root
+  roles:
+    - user
+
+- hosts: preprod
+  remote_user: "{{ default_user }}"
+  roles:
+    - common
+    - virtualenv
+    - hg
+    - { role: start, when: (hg_local_updated is defined) and hg_local_updated is changed }
+    - { role: postgresql, when: (hg_local_updated is defined) and hg_local_updated is changed }
+    - { role: node, when: (hg_local_updated is defined) and hg_local_updated is changed }
+    - { role: django, when: (hg_local_updated is defined) and hg_local_updated is changed }
+    - { role: gunicorn, when: (hg_local_updated is defined) and hg_local_updated is changed }
+    - { role: nginx, when: (hg_local_updated is defined) and hg_local_updated is changed }
+    - { role: finish, when: (hg_local_updated is defined) and hg_local_updated is changed }
+  environment:
+    PATH: "{{ ansible_env.PATH }}:{{ extra_path }}"

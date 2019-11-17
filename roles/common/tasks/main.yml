@@ -1,0 +1,29 @@
+---
+- name: install all system dependencies with apt-get
+  become: true
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  with_items:
+    - binutils
+    - build-essential
+    - curl
+    - gdal-bin
+    - gettext
+    - git
+    - gunicorn
+    - libpq-dev
+    - libproj-dev
+    - libssl-dev
+    - mercurial
+    - nginx
+    - postgis
+    - postgresql
+    - postgresql-contrib
+    - python3-psycopg2
+    - python3-dev
+    - python3-pip
+    - ruby
+    - ruby-dev
+    - ruby-sass

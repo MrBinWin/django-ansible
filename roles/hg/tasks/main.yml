@@ -1,0 +1,82 @@
+---
+- name: create web directory
+  become: true
+  file:
+    path: "/www/{{ project_name }}"
+    state: directory
+    owner: "{{ default_user }}"
+    group: "{{ default_user }}"
+    mode: 0774
+
+- name: check bitbucket.org availability in known_hosts
+  shell: "ssh-keygen -f /etc/ssh/ssh_known_hosts -F {{ item }}"
+  with_items:
+    - bitbucket.org
+  register: ssh_known_host_results
+  ignore_errors: yes
+  changed_when: false
+
+- name: add bitbucket.org to known_hosts file
+  become: true
+  shell: "ssh-keyscan {{item.item}} >> /etc/ssh/ssh_known_hosts"
+  with_items: "{{ ssh_known_host_results.results }}"
+  when: item.stdout == ''
+
+- name: copy ssh private key from local to a node for bitbucket.org
+  copy:
+    src: "files/bitbucket_key/id_rsa"
+    dest: "/home/{{ default_user }}/.ssh/id_rsa"
+    owner: "{{ default_user }}"
+    group: "{{ default_user }}"
+    mode: 0600
+
+- name: check if the repo has been initialized already
+  stat:
+    path: "/www/{{ project_name }}/.hgflow"
+  register: hg_local_initialized_already
+  failed_when: false
+
+- name: register local hg revision
+  shell: "hg id -i | tr -cd '[[:alnum:]]._-'"
+  args:
+    chdir: "/www/{{ project_name }}"
+    warn: false
+  register: hg_local_revision
+  changed_when: false
+  when: hg_local_initialized_already.stat.exists == true
+
+- name: register remote hg revision
+  shell: "hg identify --id $(hg paths default)#{{ hg_branch }}"
+  args:
+    chdir: "/www/{{ project_name }}"
+    warn: false
+  register: hg_remote_revision
+  changed_when: false
+  when: hg_local_initialized_already.stat.exists == true
+
+- name: remove web directory
+  become: true
+  file:
+    path: "/www/{{ project_name }}"
+    state: absent
+  when: hg_local_initialized_already.stat.exists == false or (hg_local_revision.stdout != hg_remote_revision.stdout)
+
+- name: create web directory
+  become: true
+  file:
+    path: "/www/{{ project_name }}"
+    state: directory
+    owner: "{{ default_user }}"
+    group: "{{ default_user }}"
+    mode: 0774
+  when: hg_local_initialized_already.stat.exists == false or (hg_local_revision.stdout != hg_remote_revision.stdout)
+
+- name: clone or update repository
+  hg:
+    repo: "{{ hg_repo }}"
+    revision: "{{ hg_branch }}"
+    dest: "/www/{{ project_name }}"
+    force: yes
+    purge: yes
+  register: hg_local_updated
+  when: hg_local_initialized_already.stat.exists == false or (hg_local_revision.stdout != hg_remote_revision.stdout)

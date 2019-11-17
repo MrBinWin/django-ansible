@@ -1,0 +1,17 @@
+[dev]
+dev-host
+
+[dev:vars]
+ansible_host=127.0.0.2
+
+[preprod]
+preprod-host
+
+[preprod:vars]
+ansible_host=127.0.0.3
+
+[prod]
+prod-host
+
+[prod:vars]
+ansible_host=127.0.0.4

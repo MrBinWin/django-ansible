@@ -1,0 +1,12 @@
+[Unit]
+Description=gunicorn {{ project_name }} daemon
+After=network.target
+
+[Service]
+User={{ default_user }}
+Group={{ default_user }}
+WorkingDirectory=/www/{{ project_name }}
+ExecStart={{ virtualenv_path }}/bin/gunicorn --access-logfile '-' --timeout {{ gunicorn_timeout }} --workers {{ gunicorn_workers }} --bind unix:/tmp/{{ project_name }}.sock project_name.wsgi:application
+
+[Install]
+WantedBy=multi-user.target

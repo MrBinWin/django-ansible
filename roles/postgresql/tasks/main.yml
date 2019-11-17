@@ -1,0 +1,102 @@
+---
+- name: create .pgpass file
+  copy:
+    content: "localhost:5432:*:{{ db_user }}:{{ db_password }}"
+    dest: "/home/{{ default_user }}/.pgpass"
+    mode: 0600
+
+- name: ensure backup init directory exists
+  become: true
+  file:
+    path: "/backup/init"
+    state: directory
+    owner: "{{ default_user }}"
+    group: "{{ default_user }}"
+    mode: 0774
+
+- name: copy initial production database dump
+  copy:
+    src: "files/db/prod_init.pgsql"
+    dest: "/backup/init/{{ production_db_name }}.pgsql"
+    owner: "{{ default_user }}"
+    group: "{{ default_user }}"
+    mode: 0600
+
+- name: restart postgresql service to drop active connections
+  become: true
+  systemd:
+    name: "postgresql"
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
+
+- name: remove postgresql database
+  become: yes
+  become_user: postgres
+  postgresql_db:
+    name: "{{ db_name }}"
+    state: absent
+  when: db_name != production_db_name or clear_database
+
+- name: create postgresql database
+  become: yes
+  become_user: postgres
+  postgresql_db:
+    name: "{{ db_name }}"
+  register: postgresql_db_created
+
+- name: check if production daily backup exists or not
+  stat:
+    path: "/backup/day/{{ production_db_name }}.pgsql"
+  register: postgresql_prod_db_backup_exists
+
+- name: create postgresql user with access to database
+  become: yes
+  become_user: postgres
+  postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    db: "{{ db_name }}"
+    priv: ALL
+    encrypted: yes
+
+- name: make our user a superuser to restore database
+  become: yes
+  become_user: postgres
+  postgresql_user:
+    name: "{{ db_user }}"
+    role_attr_flags: SUPERUSER
+
+- name: restore database from daily backup of production
+  postgresql_db:
+    db: "{{ db_name }}"
+    login_host: "localhost"
+    login_user: "{{ db_user }}"
+    login_password: "{{ db_password }}"
+    state: "restore"
+    target: "/backup/day/{{ production_db_name }}.pgsql"
+  when: postgresql_db_created is changed and (postgresql_prod_db_backup_exists.stat.exists == true)
+
+- name: restore database from init dump of production
+  shell: "pg_restore -h localhost -U {{ db_user }} --format=c -d {{ db_name }} /backup/init/{{ production_db_name }}.pgsql"
+  when: postgresql_db_created is changed and (postgresql_prod_db_backup_exists.stat.exists == false)
+
+- name: ensure user has access to database
+  become: yes
+  become_user: postgres
+  postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    db: "{{ db_name }}"
+    priv: ALL
+    encrypted: yes
+
+- name: ensure no other users can access the database
+  become: yes
+  become_user: postgres
+  postgresql_privs:
+    db: "{{ db_name }}"
+    role: PUBLIC
+    type: database
+    priv: ALL
+    state: absent

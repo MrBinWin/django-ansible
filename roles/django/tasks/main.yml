@@ -1,0 +1,107 @@
+---
+- name: remove django cache directory
+  become: true
+  file:
+    path: "/var/tmp/{{ project_name }}_cache"
+    state: absent
+
+- name: create django cache directory
+  become: true
+  file:
+    path: "/var/tmp/{{ project_name }}_cache"
+    state: directory
+    owner: "{{ default_user }}"
+    group: "{{ default_user }}"
+    mode: 0774
+
+- name: nginx register local hg revision
+  shell: "hg id -i | tr -cd '[[:alnum:]]._-'"
+  args:
+    chdir: "/www/{{ project_name }}"
+    warn: false
+  register: nginx_local_revision
+  changed_when: false
+
+- name: copy django local_settings.py
+  template:
+    src: local_settings
+    dest: "/www/{{ project_name }}/project_name/local_settings.py"
+
+- name: copy django local_urls.py
+  template:
+    src: local_urls
+    dest: "/www/{{ project_name }}/project_name/urls/local_urls.py"
+
+- name: copy django cache.scss
+  template:
+    src: cache_scss
+    dest: "/www/{{ project_name }}/frontend/styles/variables/cache.scss"
+
+- name: Install pip dependencies from requirements.txt
+  pip:
+    virtualenv: "{{ virtualenv_path }}"
+    chdir: "/www/{{ project_name }}"
+    requirements: requirements.txt
+
+- name: run django database migrations
+  django_manage:
+    command: migrate
+    virtualenv: "{{ virtualenv_path }}"
+    app_path: "/www/{{ project_name }}"
+
+- name: update django site domain name
+  django_manage:
+    command: "set_default_domain --domain {{ server_hostname }}"
+    virtualenv: "{{ virtualenv_path }}"
+    app_path: "/www/{{ project_name }}"
+
+- name: run django tests
+  django_manage:
+    command: test
+    failfast: yes
+    virtualenv: "{{ virtualenv_path }}"
+    app_path: "/www/{{ project_name }}"
+
+- name: run django compilemessages
+  django_manage:
+      command: compilemessages
+      virtualenv: "{{ virtualenv_path }}"
+      app_path: "/www/{{ project_name }}"
+
+- name: gulp create assets
+  command: gulp build-assets --prod={{project_name == production_project_name}}
+  args:
+    chdir: "/www/{{ project_name }}/frontend"
+
+- name: run django collectstatic
+  django_manage:
+      command: collectstatic --noinput -i *.scss -i *.css.map
+      virtualenv: "{{ virtualenv_path }}"
+      app_path: "/www/{{ project_name }}"
+      link: no
+
+- name: check if production media folder exists
+  stat:
+    path: "{{ production_media_files_path }}"
+  register: production_media_folder
+  failed_when: false
+
+- name: copy production media files (uploads folder)
+  command: "ln -s {{ production_media_files_path }} /www/{{ project_name }}/"
+  when: production_media_folder.stat.exists == true and project_name != production_project_name
+
+- name: generate .gz files of all .js
+  shell: "for i in `find /www/{{ project_name }}/static/* -type f -name '*.js'`; do echo $i; gzip -c -6 $i > $i.gz; touch -r $i $i.gz; done;"
+
+- name: generate .gz files of all .map
+  shell: "for i in `find /www/{{ project_name }}/static/* -type f -name '*.map'`; do echo $i; gzip -c -6 $i > $i.gz; touch -r $i $i.gz; done;"
+
+- name: generate .gz files of all .css
+  shell: "for i in `find /www/{{ project_name }}/static/* -type f -name '*.css'`; do echo $i; gzip -c -6 $i > $i.gz; touch -r $i $i.gz; done;"
+
+- name: generate .gz files of all .svg
+  shell: "for i in `find /www/{{ project_name }}/static/* -type f -name '*.svg'`; do echo $i; gzip -c -6 $i > $i.gz; touch -r $i $i.gz; done;"
+
+- name: generate .gz files of all .woff2
+  shell: "for i in `find /www/{{ project_name }}/static/* -type f -name '*.woff2'`; do echo $i; gzip -c -6 $i > $i.gz; touch -r $i $i.gz; done;"
+

@@ -1,0 +1,18 @@
+---
+project_name: "{{ production_project_name }}"
+
+auth_basic_enabled: false
+
+db_name: "{{ production_db_name }}"
+db_user: "{{ default_user }}"
+db_password: "{{ default_password }}"
+
+gunicorn_workers: 3
+
+hg_branch: default
+media_files_path: "{{ production_media_files_path }}"
+
+server_hostname: project_name.com
+server_ssl_enabled: true
+
+clear_database: false

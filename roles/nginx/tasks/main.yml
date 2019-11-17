@@ -1,0 +1,95 @@
+---
+- name: add www-data to user's group
+  become: true
+  user:
+    name: "www-data"
+    append: yes
+    groups:
+      - "{{ default_user }}"
+
+- name: nginx check if the repo has been initialized already
+  shell: "hg -R /www/{{ project_name }} root"
+  args:
+    warn: false
+  failed_when: false
+  no_log: true
+  register: nginx_local_repo_initialized_already
+  changed_when: false
+
+- name: nginx register local hg revision
+  shell: "hg id -i | tr -cd '[[:alnum:]]._-'"
+  args:
+    chdir: "/www/{{ project_name }}"
+    warn: false
+  register: nginx_local_revision
+  changed_when: false
+  when: nginx_local_repo_initialized_already is succeeded
+
+- name: copy .htpasswd file into /etc/nginx
+  become: true
+  copy:
+    src: "files/nginx/.htpasswd"
+    dest: "/etc/nginx/.htpasswd"
+    owner: "root"
+    group: "root"
+    mode: 0644
+
+- name: Copy nginx configuration with ssl enabled
+  become: true
+  template:
+    src: with_ssl.conf
+    dest: "/etc/nginx/sites-available/{{ project_name }}"
+  register: nginx_ssl_conf_created
+  failed_when: nginx_local_revision is skipped or nginx_local_revision is failed
+  when: server_ssl_enabled
+
+- name: Copy ssl crt
+  become: true
+  copy:
+    src: "files/ssl/crt"
+    dest: "/etc/ssl/{{ project_name }}.crt"
+    owner: root
+    group: root
+    mode: 0600
+  when: server_ssl_enabled
+
+- name: Copy ssl key
+  become: true
+  copy:
+    src: "files/ssl/key"
+    dest: "/etc/ssl/{{ project_name }}.key"
+    owner: root
+    group: root
+    mode: 0600
+  when: server_ssl_enabled
+
+- name: Copy nginx configuration without ssl
+  become: true
+  template:
+    src: without_ssl.conf
+    dest: "/etc/nginx/sites-available/{{ project_name }}"
+  register: nginx_no_ssl_conf_created
+  failed_when: nginx_local_revision is skipped or nginx_local_revision is failed
+  when: server_ssl_enabled == false
+
+- name: Add host as a localhost to /etc/hosts
+  become: true
+  lineinfile:
+    dest: /etc/hosts
+    line: "127.0.0.1 {{ item }}"
+    state: present
+  with_items:
+    - "{{ server_hostname }}"
+    - "www.{{ server_hostname }}"
+
+- name: Create symlink in nginx/sites_enabled
+  become: true
+  file:
+    src: "/etc/nginx/sites-available/{{ project_name }}"
+    dest: "/etc/nginx/sites-enabled/{{ project_name }}"
+    state: link
+  when: nginx_ssl_conf_created is changed or nginx_no_ssl_conf_created is changed
+
+- name: restart nginx service
+  command: /bin/true
+  notify: restart nginx

@@ -1,0 +1,70 @@
+---
+- name: create custom format daily backup directory
+  become: true
+  file:
+    path: "/backup/custom"
+    state: directory
+    owner: "{{ default_user }}"
+    group: "{{ default_user }}"
+    mode: 0774
+
+- name: create daily backup directory
+  become: true
+  file:
+    path: "/backup/day"
+    state: directory
+    owner: "{{ default_user }}"
+    group: "{{ default_user }}"
+    mode: 0774
+
+- name: create weekly backup directory
+  become: true
+  file:
+    path: "/backup/week"
+    state: directory
+    owner: "{{ default_user }}"
+    group: "{{ default_user }}"
+    mode: 0774
+
+- name: backup database every day in custom format
+  cron:
+    name: backup custom database every day
+    minute: 15
+    hour: 2
+    job: "pg_dump --no-password --format=c -U {{ db_user }} {{ db_name }} > /backup/custom/{{ db_name }}.pgsql"
+
+- name: backup database every day
+  cron:
+    name: backup database every day
+    minute: 2
+    hour: 2
+    job: "pg_dump --no-password -U {{ db_user }} {{ db_name }} > /backup/day/{{ db_name }}.pgsql"
+
+- name: backup database every week
+  cron:
+    name: backup database every week
+    minute: 0
+    hour: 5
+    weekday: 1
+    job: "pg_dump --no-password -U {{ db_user }} {{ db_name }} > /backup/week/{{ db_name }}.pgsql"
+
+- name: send all cron emails from db every 2 minutes
+  cron:
+    name: send all cron emails from db every 2 minutes
+    minute: "*/2"
+    job: "/home/{{ default_user }}/.virtualenvs/{{ project_name }}/bin/python3 /www/{{ project_name }}/manage.py send_cron_emails"
+
+- name: renew SSL certificates for site.com and www.site.com
+  cron:
+    name: renew SSL certificates for site.com and www.site.com
+    minute: 23
+    hour: 5
+    weekday: 1
+    job: "certbot renew --dry-run"
+
+- name: some django command
+  cron:
+    name: some django command
+    minute: 5
+    hour: 2
+    job: "/home/{{ default_user }}/.virtualenvs/{{ project_name }}/bin/python3 /www/{{ project_name }}/manage.py some_django_command"

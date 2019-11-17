@@ -1,0 +1,18 @@
+---
+default_user: default_user
+default_password: default_password
+
+django_settings_debug: False
+extra_path: "/home/{{default_user}}/n/bin"
+gunicorn_timeout: 300
+gunicorn_workers: 3
+hg_repo: ssh://hg@bitbucket.org/path_to_repo
+media_files_path: "/www/{{ project_name }}/uploads"
+production_db_name: production_db_name
+production_media_files_path: "/www/uploads"
+production_project_name: production_project_name
+
+virtualenv_path: "/home/{{ default_user }}/.virtualenvs/{{ project_name }}"
+
+ansible_become_pass: "{{ default_password }}"
+ansible_python_interpreter: /usr/bin/python3
